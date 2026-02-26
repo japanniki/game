@@ -60,7 +60,6 @@ function shoot() {
   if (now - lastShot < fireRate) return;
   lastShot = now;
 
-  // shotLevel に応じて角度を生成
   const max = shotLevel;
   const spread = 0.4;
   const angles = [];
@@ -509,6 +508,7 @@ function startGame() {
   bossWarning = false;
   shotLevel = 1;
   player.x = canvas.width / 2;
+  player.y = canvas.height - 40;
 }
 
 // ----------------------
@@ -536,7 +536,11 @@ function loop(timestamp) {
     updateBullets();
     updateItems();
     checkCollisions();
-    checkEnemyBulletHit();
+
+    // 敵弾ヒット
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+      if (isHit(enemyBullets[i], player)) gameOver = true;
+    }
 
     // ★ ボス警告 → ボス出現
     if (!boss && !bossWarning && score >= 100) {
@@ -551,9 +555,15 @@ function loop(timestamp) {
 
     updateBoss(timestamp);
 
+    // ★ 上下左右移動
     if (keys["ArrowLeft"])  player.x -= player.speed;
     if (keys["ArrowRight"]) player.x += player.speed;
+    if (keys["ArrowUp"])    player.y -= player.speed;
+    if (keys["ArrowDown"])  player.y += player.speed;
+
+    // 画面外に出ないように
     player.x = Math.max(player.w, Math.min(canvas.width - player.w, player.x));
+    player.y = Math.max(player.h, Math.min(canvas.height - player.h, player.y));
   } else {
     gameState = "gameover";
   }
@@ -568,10 +578,3 @@ function loop(timestamp) {
 
   if (bossWarning) drawBossWarning();
 
-  requestAnimationFrame(loop);
-}
-
-requestAnimationFrame(loop);
-</script>
-</body>
-</html>
