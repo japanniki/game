@@ -15,13 +15,13 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let gameState = "title"; // title, playing, gameover
+let gameState = "title";
 
 const keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup",   e => keys[e.key] = false);
 
-let fireRate = 300;
+let fireRate = 200;
 let lastShot = 0;
 
 let specialGauge = 0;
@@ -44,7 +44,7 @@ let lastEnemyTime = 0;
 let score = 0;
 let gameOver = false;
 
-// ★ ボス警告フラグ
+// ★ ボス警告
 let bossWarning = false;
 let bossWarningTime = 0;
 
@@ -63,8 +63,8 @@ function shoot() {
       y: player.y - 15,
       w: 4,
       h: 10,
-      vx: Math.sin(a) * 2,
-      vy: -5
+      vx: Math.sin(a) * 4,
+      vy: -7
     });
   });
 }
@@ -76,7 +76,7 @@ document.addEventListener("keydown", e => {
 });
 
 // ----------------------
-// スペシャル技（全画面攻撃）
+// スペシャル技
 // ----------------------
 function useSpecial() {
   specialReady = false;
@@ -89,7 +89,7 @@ function useSpecial() {
 }
 
 // ----------------------
-// 敵生成（3種類）
+// 敵生成
 // ----------------------
 function spawnEnemy(timestamp) {
   if (timestamp - lastEnemyTime > 1200) {
@@ -118,7 +118,7 @@ function spawnEnemy(timestamp) {
 }
 
 // ----------------------
-// 誘導弾（寿命付き）
+// 誘導弾
 // ----------------------
 function enemyShoot(e, timestamp) {
   if (timestamp - e.shootTime > 2000) {
@@ -161,7 +161,7 @@ function updateEnemyBullets(timestamp) {
 }
 
 // ----------------------
-// 敵の更新（3種）
+// 敵の更新
 // ----------------------
 function updateEnemies(timestamp) {
   for (let i = enemies.length - 1; i >= 0; i--) {
@@ -188,7 +188,7 @@ function updateEnemies(timestamp) {
       }
     }
 
-    if (e.type === "split" && e.split === false && e.y > 200) {
+    if (e.type === "split" && !e.split && e.y > 200) {
       enemies.push({ x: e.x - 10, y: e.y, w: 20, h: 15, speed: 2, type: "normal" });
       enemies.push({ x: e.x + 10, y: e.y, w: 20, h: 15, speed: 2, type: "normal" });
       e.split = true;
@@ -284,7 +284,7 @@ function checkEnemyBulletHit() {
 }
 
 // ----------------------
-// 弾の更新（★追加）
+// 弾の更新（★重要）
 // ----------------------
 function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
@@ -357,16 +357,33 @@ function drawBoss() {
   ctx.fillText("BOSS HP: " + boss.hp, boss.x - 40, boss.y - boss.h / 2 - 10);
 }
 
+// ----------------------
+// UI（SPゲージをバーに変更）
+// ----------------------
 function drawUI() {
   ctx.fillStyle = "white";
   ctx.font = "16px sans-serif";
   ctx.fillText("SCORE: " + score, 10, 20);
 
-  ctx.fillText("SP: " + specialGauge, 10, 40);
-  if (specialReady) ctx.fillText("Xでスペシャル！", 10, 60);
+  // SPゲージバー
+  ctx.fillStyle = "#444";
+  ctx.fillRect(10, 40, 100, 12);
+
+  ctx.fillStyle = specialReady ? "cyan" : "yellow";
+  ctx.fillRect(10, 40, Math.min(specialGauge, 100), 12);
+
+  ctx.strokeStyle = "white";
+  ctx.strokeRect(10, 40, 100, 12);
+
+  if (specialReady) {
+    ctx.fillStyle = "white";
+    ctx.fillText("Xでスペシャル！", 120, 50);
+  }
 }
 
-// ★ ボス警告表示
+// ----------------------
+// ボス警告
+// ----------------------
 function drawBossWarning() {
   ctx.fillStyle = "red";
   ctx.font = "40px sans-serif";
@@ -380,7 +397,7 @@ function drawBossWarning() {
 }
 
 // ----------------------
-// タイトル画面
+// タイトル
 // ----------------------
 function drawTitle() {
   ctx.fillStyle = "white";
@@ -394,7 +411,7 @@ function drawTitle() {
 }
 
 // ----------------------
-// ゲームオーバー画面
+// ゲームオーバー
 // ----------------------
 function drawGameOver() {
   ctx.fillStyle = "white";
