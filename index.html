@@ -24,6 +24,9 @@ document.addEventListener("keyup",   e => keys[e.key] = false);
 let fireRate = 200;
 let lastShot = 0;
 
+// ★ パワーアップ（初期1WAY → 最大5WAY）
+let shotLevel = 1;
+
 let specialGauge = 0;
 let specialReady = false;
 
@@ -38,6 +41,7 @@ const player = {
 const bullets = [];
 const enemies = [];
 const enemyBullets = [];
+const items = [];
 let boss = null;
 
 let lastEnemyTime = 0;
@@ -49,14 +53,26 @@ let bossWarning = false;
 let bossWarningTime = 0;
 
 // ----------------------
-// 自機ショット（3WAY）
+// 自機ショット（可変WAY）
 // ----------------------
 function shoot() {
   const now = performance.now();
   if (now - lastShot < fireRate) return;
   lastShot = now;
 
-  const angles = [-0.2, 0, 0.2];
+  // shotLevel に応じて角度を生成
+  const max = shotLevel;
+  const spread = 0.4;
+  const angles = [];
+
+  if (max === 1) angles.push(0);
+  else {
+    for (let i = 0; i < max; i++) {
+      const t = (i / (max - 1)) - 0.5;
+      angles.push(t * spread);
+    }
+  }
+
   angles.forEach(a => {
     bullets.push({
       x: player.x,
@@ -89,7 +105,7 @@ function useSpecial() {
 }
 
 // ----------------------
-// 敵生成
+// 敵生成（HP付き）
 // ----------------------
 function spawnEnemy(timestamp) {
   if (timestamp - lastEnemyTime > 1200) {
@@ -97,9 +113,11 @@ function spawnEnemy(timestamp) {
 
     const r = Math.random();
     let type = "normal";
-    if (r < 0.15) type = "homing";
-    else if (r < 0.30) type = "ram";
-    else if (r < 0.40) type = "split";
+    let hp = 1;
+
+    if (r < 0.15) { type = "homing"; hp = 2; }
+    else if (r < 0.30) { type = "ram"; hp = 3; }
+    else if (r < 0.40) { type = "split"; hp = 2; }
 
     enemies.push({
       x: Math.random() * (canvas.width - w) + w / 2,
@@ -107,6 +125,7 @@ function spawnEnemy(timestamp) {
       w, h,
       speed: 1.5,
       type,
+      hp,
       state: "aim",
       aimTime: timestamp,
       split: false,
@@ -189,8 +208,8 @@ function updateEnemies(timestamp) {
     }
 
     if (e.type === "split" && !e.split && e.y > 200) {
-      enemies.push({ x: e.x - 10, y: e.y, w: 20, h: 15, speed: 2, type: "normal" });
-      enemies.push({ x: e.x + 10, y: e.y, w: 20, h: 15, speed: 2, type: "normal" });
+      enemies.push({ x: e.x - 10, y: e.y, w: 20, h: 15, speed: 2, type: "normal", hp: 1 });
+      enemies.push({ x: e.x + 10, y: e.y, w: 20, h: 15, speed: 2, type: "normal", hp: 1 });
       e.split = true;
     }
 
@@ -260,31 +279,60 @@ function isHit(a, b) {
   );
 }
 
+// ----------------------
+// 敵撃破 → アイテムドロップ
+// ----------------------
 function checkCollisions() {
   for (let i = enemies.length - 1; i >= 0; i--) {
     for (let j = bullets.length - 1; j >= 0; j--) {
       if (isHit(enemies[i], bullets[j])) {
         bullets.splice(j, 1);
-        enemies.splice(i, 1);
-        score += 10;
+        enemies[i].hp--;
 
-        specialGauge += 10;
-        if (specialGauge >= 100) specialReady = true;
+        if (enemies[i].hp <= 0) {
+          // ★ アイテムドロップ（30%）
+          if (Math.random() < 0.3) {
+            items.push({
+              x: enemies[i].x,
+              y: enemies[i].y,
+              w: 12,
+              h: 12,
+              vy: 2
+            });
+          }
 
+          enemies.splice(i, 1);
+          score += 10;
+
+          specialGauge += 10;
+          if (specialGauge >= 100) specialReady = true;
+        }
         break;
       }
     }
   }
 }
 
-function checkEnemyBulletHit() {
-  for (let i = enemyBullets.length - 1; i >= 0; i--) {
-    if (isHit(enemyBullets[i], player)) gameOver = true;
+// ----------------------
+// アイテム取得
+// ----------------------
+function updateItems() {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    it.y += it.vy;
+
+    if (isHit(it, player)) {
+      items.splice(i, 1);
+      shotLevel = Math.min(5, shotLevel + 1);
+      continue;
+    }
+
+    if (it.y > canvas.height + 20) items.splice(i, 1);
   }
 }
 
 // ----------------------
-// 弾の更新（★重要）
+// 弾の更新
 // ----------------------
 function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
@@ -343,6 +391,15 @@ function drawEnemyBullets() {
   });
 }
 
+function drawItems() {
+  ctx.fillStyle = "cyan";
+  items.forEach(it => {
+    ctx.beginPath();
+    ctx.arc(it.x, it.y, it.w / 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
 function drawBoss() {
   if (!boss) return;
   ctx.fillStyle = "purple";
@@ -358,7 +415,7 @@ function drawBoss() {
 }
 
 // ----------------------
-// UI（SPゲージをバーに変更）
+// UI（SPゲージ）
 // ----------------------
 function drawUI() {
   ctx.fillStyle = "white";
@@ -379,6 +436,9 @@ function drawUI() {
     ctx.fillStyle = "white";
     ctx.fillText("Xでスペシャル！", 120, 50);
   }
+
+  ctx.fillStyle = "white";
+  ctx.fillText("SHOT: " + shotLevel + "WAY", 10, 70);
 }
 
 // ----------------------
@@ -443,9 +503,11 @@ function startGame() {
   enemies.length = 0;
   enemyBullets.length = 0;
   bullets.length = 0;
+  items.length = 0;
   boss = null;
   gameOver = false;
   bossWarning = false;
+  shotLevel = 1;
   player.x = canvas.width / 2;
 }
 
@@ -472,6 +534,7 @@ function loop(timestamp) {
     updateEnemies(timestamp);
     updateEnemyBullets(timestamp);
     updateBullets();
+    updateItems();
     checkCollisions();
     checkEnemyBulletHit();
 
@@ -499,6 +562,7 @@ function loop(timestamp) {
   drawBullets();
   drawEnemies();
   drawEnemyBullets();
+  drawItems();
   drawBoss();
   drawUI();
 
