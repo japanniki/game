@@ -44,6 +44,10 @@ let lastEnemyTime = 0;
 let score = 0;
 let gameOver = false;
 
+// ★ ボス警告フラグ
+let bossWarning = false;
+let bossWarningTime = 0;
+
 // ----------------------
 // 自機ショット（3WAY）
 // ----------------------
@@ -78,7 +82,6 @@ function useSpecial() {
   specialReady = false;
   specialGauge = 0;
 
-  // 全敵を消す
   enemies.length = 0;
   enemyBullets.length = 0;
 
@@ -138,7 +141,7 @@ function updateEnemyBullets(timestamp) {
   for (let i = enemyBullets.length - 1; i >= 0; i--) {
     const b = enemyBullets[i];
 
-    if (timestamp - b.born > 5000) { // 5秒で消える
+    if (timestamp - b.born > 5000) {
       enemyBullets.splice(i, 1);
       continue;
     }
@@ -281,6 +284,21 @@ function checkEnemyBulletHit() {
 }
 
 // ----------------------
+// 弾の更新（★追加）
+// ----------------------
+function updateBullets() {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.x += b.vx;
+    b.y += b.vy;
+
+    if (b.y < -20 || b.x < -20 || b.x > canvas.width + 20) {
+      bullets.splice(i, 1);
+    }
+  }
+}
+
+// ----------------------
 // 描画
 // ----------------------
 function drawPlayer() {
@@ -301,8 +319,12 @@ function drawBullets() {
 }
 
 function drawEnemies() {
-  ctx.fillStyle = "red";
   enemies.forEach(e => {
+    if (e.type === "normal") ctx.fillStyle = "red";
+    if (e.type === "homing") ctx.fillStyle = "lime";
+    if (e.type === "ram")    ctx.fillStyle = "orange";
+    if (e.type === "split")  ctx.fillStyle = "pink";
+
     ctx.beginPath();
     ctx.moveTo(e.x, e.y - e.h / 2);
     ctx.lineTo(e.x - e.w / 2, e.y + e.h / 2);
@@ -342,6 +364,19 @@ function drawUI() {
 
   ctx.fillText("SP: " + specialGauge, 10, 40);
   if (specialReady) ctx.fillText("Xでスペシャル！", 10, 60);
+}
+
+// ★ ボス警告表示
+function drawBossWarning() {
+  ctx.fillStyle = "red";
+  ctx.font = "40px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("⚠ WARNING ⚠", canvas.width / 2, canvas.height / 2);
+
+  ctx.font = "20px sans-serif";
+  ctx.fillText("Boss Approaching...", canvas.width / 2, canvas.height / 2 + 40);
+
+  ctx.textAlign = "start";
 }
 
 // ----------------------
@@ -393,6 +428,7 @@ function startGame() {
   bullets.length = 0;
   boss = null;
   gameOver = false;
+  bossWarning = false;
   player.x = canvas.width / 2;
 }
 
@@ -418,10 +454,21 @@ function loop(timestamp) {
     spawnEnemy(timestamp);
     updateEnemies(timestamp);
     updateEnemyBullets(timestamp);
+    updateBullets();
     checkCollisions();
     checkEnemyBulletHit();
 
-    if (!boss && score >= 100) spawnBoss();
+    // ★ ボス警告 → ボス出現
+    if (!boss && !bossWarning && score >= 100) {
+      bossWarning = true;
+      bossWarningTime = timestamp;
+    }
+
+    if (bossWarning && timestamp - bossWarningTime > 2000) {
+      spawnBoss();
+      bossWarning = false;
+    }
+
     updateBoss(timestamp);
 
     if (keys["ArrowLeft"])  player.x -= player.speed;
@@ -437,6 +484,8 @@ function loop(timestamp) {
   drawEnemyBullets();
   drawBoss();
   drawUI();
+
+  if (bossWarning) drawBossWarning();
 
   requestAnimationFrame(loop);
 }
